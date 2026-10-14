@@ -51,6 +51,12 @@ Clean laps earn 1,000 points each; a three-lap perfect run adds 3,000. Crashes c
 
 Hold acceleration and combine it with drift or boost. Touch controls accept multiple simultaneous pointers and release cleanly when fingers leave or are cancelled. The game pauses when the tab becomes hidden or loses focus. Gamepad and fullscreen support depend on browser permissions. Audio starts only after a user gesture.
 
+## Mobile controls and custom layout
+
+On a phone, choose LEFT / RIGHT BUTTONS or JOYSTICK in the garage. Accelerator, brake, drift and boost support simultaneous fingers. Turn the phone to landscape for the larger racing layout. The game prompts before starting in portrait and pauses if rotated back during a race. Fullscreen/orientation lock is attempted only after tapping the fullscreen button; manually rotate the phone when the browser cannot lock orientation. Portrait remains available through CONTINUE IN PORTRAIT.
+
+Tap CUSTOMIZE CONTROLS in the garage or EDIT HUD during a race. Drag the steering controls, accelerator, brake, drift, boost, pause and recover anywhere within the screen. Adjust the size slider, switch steering style, and SAVE. CANCEL restores the previous layout; RESET restores the current orientation defaults. Portrait and landscape positions save separately in this browser. Editing pauses gameplay and does not send driving inputs. Keyboard and gamepad controls retain their existing mappings.
+
 ## Verification
 
 `npm run check` verifies syntax, required assets, acceleration, braking, boost energy, drift scoring, manual left/right heading, collision boundaries and time formatting. A headless integration harness uses real Three.js geometry with a mock GPU renderer to check circuit construction, keyboard and touch events, countdowns, pause/resume, restart, race finish, result storage, ghost loading and garage selections.
@@ -64,6 +70,7 @@ Real GPU rendering, physical mobile controls and actual frame rates have not bee
 - `dist/game.js`: procedural scene, manual driving, camera, opponents, input, race states and audio
 - `dist/physics.js`: world-space manual steering, grip, drift and scoring
 - `dist/cars.js`: procedural vehicle geometry
+- `dist/mobile.js`: mobile controls, HUD editor, saved layout and rotation handling
 - `dist/vendor`: locally bundled Three.js r170 and GSAP
 - `scripts`: static server and behavioral checks
 

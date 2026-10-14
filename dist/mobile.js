@@ -1,0 +1,36 @@
+const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
+const defaults=()=>({mode:'buttons',size:72,layouts:{landscape:{},portrait:{}}});
+export function normalizePosition(x,y,width,height,size=72){return{x:clamp(x/width,size/2/width,1-size/2/width),y:clamp(y/height,size/2/height,1-size/2/height)};}
+export function installMobileControls({touch,clearInput,pause,startRace,getPhase,registerReset}){
+ const $=id=>document.getElementById(id),isMobile=()=>matchMedia('(any-pointer:coarse)').matches||navigator.maxTouchPoints>0;
+ let config=defaults();try{const saved=JSON.parse(localStorage.getItem('nd-mobile-controls'));if(saved){config.mode=saved.mode==='joystick'?'joystick':'buttons';config.size=clamp(+saved.size||72,56,100);for(const key of ['landscape','portrait'])config.layouts[key]=saved.layouts?.[key]||{};}}catch{}
+ let editing=false,snapshot,restoreState,drag=null,pendingStart=false,allowPortrait=false;
+ const ids=['stick','steerLeft','steerRight','touch-accel','touch-brake','touch-drift','touch-boost','pause','recover'];
+ const orientation=()=>innerWidth>=innerHeight?'landscape':'portrait';
+ function persist(){try{localStorage.setItem('nd-mobile-controls',JSON.stringify(config));}catch{}}
+ function preset(id){const land=orientation()==='landscape';const points=land?{stick:[.17,.72],steerLeft:[.10,.79],steerRight:[.23,.79],'touch-accel':[.89,.80],'touch-brake':[.76,.82],'touch-drift':[.76,.58],'touch-boost':[.89,.55],pause:[.93,.16],recover:[.64,.15]}:{stick:[.18,.80],steerLeft:[.10,.87],steerRight:[.30,.87],'touch-accel':[.87,.86],'touch-brake':[.66,.87],'touch-drift':[.66,.72],'touch-boost':[.87,.71],pause:[.90,.13],recover:[.85,.34]};const [x,y]=points[id];return{x,y};}
+ function dimensions(id){if(id==='stick')return[config.size*1.6,config.size*1.6];if(id==='pause')return[48,48];if(id==='recover')return[82,38];return[config.size,config.size];}
+ function apply(){
+  if(!isMobile())return;document.body.classList.add('mobile-controls');document.body.dataset.steering=config.mode;
+  $('steeringMode').value=config.mode;$('editorMode').value=config.mode;$('controlSize').value=String(config.size);$('controlSizeLabel').textContent=config.size+'px';
+  const layout=config.layouts[orientation()];for(const id of ids){const el=$(id),[w,h]=dimensions(id);let pos=layout[id]||preset(id);pos=normalizePosition(pos.x*innerWidth,pos.y*innerHeight,innerWidth,innerHeight,Math.max(w,h));const safe=window.getComputedStyle?.($('mobileSafe'));const sl=parseFloat(safe?.paddingLeft)||0,sr=parseFloat(safe?.paddingRight)||0,st=parseFloat(safe?.paddingTop)||0,sb=parseFloat(safe?.paddingBottom)||0;pos.x=clamp(pos.x,(sl+w/2+8)/innerWidth,1-(sr+w/2+8)/innerWidth);pos.y=clamp(pos.y,(st+h/2+8)/innerHeight,1-(sb+h/2+8)/innerHeight);
+   el.style.position='fixed';el.style.left=(pos.x*innerWidth)+'px';el.style.top=(pos.y*innerHeight)+'px';el.style.right='auto';el.style.bottom='auto';el.style.width=w+'px';el.style.height=h+'px';el.style.transform='translate(-50%,-50%)';
+  }
+ }
+ function setMode(mode){config.mode=mode==='joystick'?'joystick':'buttons';clearInput();touch.left=touch.right=false;apply();if(!editing)persist();}
+ function edit(){if(!isMobile()||editing)return;if(['racing','countdown'].includes(getPhase()))pause();clearInput();snapshot=JSON.stringify(config);restoreState={menu:$('menu').hidden,hud:$('hud').hidden,modal:$('modal').hidden,playing:document.body.classList.contains('playing')};editing=true;document.body.classList.add('editing-hud','playing');$('menu').hidden=true;$('hud').hidden=false;$('modal').hidden=true;$('hudEditor').hidden=false;$('editorOrientation').textContent=orientation().toUpperCase()+' LAYOUT';apply();}
+ function endEdit(save){if(!editing)return;if(save)persist();else config=JSON.parse(snapshot);editing=false;drag=null;clearInput();document.body.classList.remove('editing-hud');if(!restoreState.playing)document.body.classList.remove('playing');$('menu').hidden=restoreState.menu;$('hud').hidden=restoreState.hud;$('modal').hidden=restoreState.modal;$('hudEditor').hidden=true;apply();}
+ for(const id of ids){const el=$(id);el.addEventListener('pointerdown',e=>{if(!editing)return;e.preventDefault();e.stopImmediatePropagation();el.setPointerCapture(e.pointerId);const r=el.getBoundingClientRect();drag={id,pointer:e.pointerId,dx:e.clientX-(r.left+r.width/2),dy:e.clientY-(r.top+r.height/2)};},true);
+  el.addEventListener('pointermove',e=>{if(!editing||drag?.pointer!==e.pointerId||drag.id!==id)return;e.preventDefault();e.stopImmediatePropagation();const [w,h]=dimensions(id);config.layouts[orientation()][id]=normalizePosition(e.clientX-drag.dx,e.clientY-drag.dy,innerWidth,innerHeight,Math.max(w,h));apply();},true);
+  for(const event of ['pointerup','pointercancel','lostpointercapture'])el.addEventListener(event,e=>{if(!editing)return;e.stopImmediatePropagation();if(drag?.pointer===e.pointerId)drag=null;},true);
+  el.addEventListener('click',e=>{if(editing){e.preventDefault();e.stopImmediatePropagation();}},true);
+ }
+ for(const [id,action] of [['steerLeft','left'],['steerRight','right']]){const pointers=new Set(),el=$(id);registerReset(()=>pointers.clear());el.addEventListener('pointerdown',e=>{if(editing||config.mode!=='buttons')return;e.preventDefault();el.setPointerCapture(e.pointerId);pointers.add(e.pointerId);touch[action]=true;el.classList.add('pressed');});for(const name of ['pointerup','pointercancel','lostpointercapture'])el.addEventListener(name,e=>{pointers.delete(e.pointerId);touch[action]=pointers.size>0;el.classList.toggle('pressed',touch[action]);});}
+ $('steeringMode').onchange=e=>setMode(e.target.value);$('editorMode').onchange=e=>setMode(e.target.value);$('customizeControls').onclick=edit;$('editHud').onclick=edit;$('saveHud').onclick=()=>endEdit(true);$('cancelHud').onclick=()=>endEdit(false);$('resetHud').onclick=()=>{config.layouts[orientation()]={};config.size=72;apply();};$('controlSize').oninput=e=>{config.size=clamp(+e.target.value,56,100);apply();};
+ function showRotation(){clearInput();$('rotatePrompt').hidden=false;}
+ function beforeStart(){if(!isMobile()||orientation()==='landscape'||allowPortrait)return true;pendingStart=true;showRotation();return false;}
+ $('rotateFullscreen').onclick=async()=>{try{if(!document.fullscreenElement)await document.documentElement.requestFullscreen();}catch{}try{await screen.orientation?.lock?.('landscape');}catch{}if(orientation()==='landscape'){const start=pendingStart;pendingStart=false;$('rotatePrompt').hidden=true;if(start)startRace();}};
+ $('portraitPlay').onclick=()=>{allowPortrait=true;const start=pendingStart;pendingStart=false;$('rotatePrompt').hidden=true;if(start)startRace();};$('cancelRotation').onclick=()=>{pendingStart=false;$('rotatePrompt').hidden=true;};
+ window.addEventListener('resize',()=>{if(!isMobile())return;clearInput();apply();if(editing){drag=null;$('editorOrientation').textContent=orientation().toUpperCase()+' LAYOUT';return;}if(orientation()==='landscape'){const start=pendingStart;pendingStart=false;$('rotatePrompt').hidden=true;if(start)startRace();}else if(!allowPortrait&&['racing','countdown'].includes(getPhase())){pause();showRotation();}});
+ apply();return{get editing(){return editing;},get mode(){return config.mode;},beforeStart,edit,setMode};
+}
