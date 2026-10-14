@@ -1,0 +1,17 @@
+import * as THREE from './vendor/three.module.js';
+// Original procedural models, inspired by real vehicle proportions; no branded replicas.
+export function createCar(color,index=0){
+ const car=new THREE.Group(),paint=new THREE.MeshStandardMaterial({color,metalness:.65,roughness:.28}),carbon=new THREE.MeshStandardMaterial({color:0x0c1118,metalness:.45,roughness:.5}),glass=new THREE.MeshStandardMaterial({color:0x18384b,metalness:.8,roughness:.13}),rubber=new THREE.MeshStandardMaterial({color:0x080a0d,roughness:.95}),chrome=new THREE.MeshStandardMaterial({color:0xabb8c2,metalness:.95,roughness:.2});
+ const add=(geometry,mat,x,y,z)=>{const m=new THREE.Mesh(geometry,mat);m.position.set(x,y,z);car.add(m);return m;};
+ const box=(w,h,d,mat,x,y,z)=>add(new THREE.BoxGeometry(w,h,d),mat,x,y,z);
+ function shell(w,length,height){const shape=new THREE.Shape();shape.moveTo(-w*.37,-length/2);shape.lineTo(w*.37,-length/2);shape.lineTo(w/2,-length*.26);shape.lineTo(w/2,length*.32);shape.lineTo(w*.4,length/2);shape.lineTo(-w*.4,length/2);shape.lineTo(-w/2,length*.32);shape.lineTo(-w/2,-length*.26);shape.closePath();const geo=new THREE.ExtrudeGeometry(shape,{depth:height,bevelEnabled:true,bevelSize:.16,bevelThickness:.12,bevelSegments:2,steps:1});geo.rotateX(Math.PI/2);const b=add(geo,paint,0,height+.48,0);return b;}
+ const w=index===1?2.25:2.05,len=index===1?5.2:4.7;shell(w,len,index===1?.55:.38);box(w+.15,.12,len+.2,carbon,0,.45,0);
+ // Cabin silhouette and sloping front/rear glass.
+ const cabin=box(index===1?1.65:1.5,.62,index===0?1.65:2.05,glass,0,1.22,index===0?.35:.1);const windshield=box(1.4,.06,1.15,glass,0,1.23,-.95);windshield.rotation.x=-.47;box(index===1?1.65:1.45,.12,index===0?.85:1.1,paint,0,1.6,.25);
+ for(const side of [-1,1]){box(.1,.55,1.8,paint,side*.78,1.24,.1);box(.16,.15,.3,paint,side*1.13,1.13,-.8);box(.06,.07,1.35,carbon,side*(w/2+.13),.72,.2);}
+ if(index===0){box(1.45,.08,1.2,carbon,0,.99,1.55);for(let i=0;i<5;i++)box(1.35,.04,.07,paint,0,1.06,1.12+i*.2);box(1.2,.07,1.35,paint,0,.98,-1.3);}else if(index===1){box(.58,.23,.65,carbon,0,1.16,-1.2);for(const s of [-1,1])box(.17,.03,4.3,carbon,s*.3,1.1,0);}else{for(const s of [-1,1])box(.09,.42,.15,carbon,s*.75,1.12,1.95);box(2.4,.1,.55,carbon,0,1.4,2.02);}
+ // Wheels, metallic rims, brake discs and rotating spokes.
+ for(const side of [-1,1])for(const z of [-1.45,1.5]){const steeringPivot=new THREE.Group();steeringPivot.position.set(side*(w/2+.05),.48,z);car.add(steeringPivot);const wheel=new THREE.Group();steeringPivot.add(wheel);const tire=new THREE.Mesh(new THREE.CylinderGeometry(.48,.48,.33,20),rubber);tire.rotation.z=Math.PI/2;wheel.add(tire);const rim=new THREE.Mesh(new THREE.CylinderGeometry(.31,.31,.35,16),chrome);rim.rotation.z=Math.PI/2;wheel.add(rim);for(let i=0;i<5;i++){const spoke=new THREE.Mesh(new THREE.BoxGeometry(.38,.045,.6),carbon);spoke.rotation.x=i*Math.PI/5;wheel.add(spoke);}car.userData.wheels??=[];car.userData.wheels.push({pivot:steeringPivot,mesh:wheel,front:z<0});}
+ const headlight=new THREE.MeshStandardMaterial({color:0xe2f7ff,emissive:0xb9eaff,emissiveIntensity:3}),tail=new THREE.MeshStandardMaterial({color:0xff263e,emissive:0xff1730,emissiveIntensity:2.5});for(const side of [-1,1]){box(index===1?.6:.7,.11,.1,headlight,side*.65,.88,-len/2-.11);box(.7,.12,.1,tail,side*.65,.88,len/2+.1);const exhaust=add(new THREE.CylinderGeometry(.09,.09,.3,8),chrome,side*.7,.5,len/2+.12);exhaust.rotation.x=Math.PI/2;}
+ box(1.2,.22,.12,carbon,0,.65,-len/2-.15);box(w,.2,.15,carbon,0,.55,len/2+.15);return car;
+}
